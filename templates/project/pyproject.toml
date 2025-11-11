@@ -1,0 +1,59 @@
+[project]
+name = "project"
+version = "0.1.0"
+description = "description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "django>=5.2.7",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+    "poethepoet>=0.37.0",
+    "ruff>=0.14.3",
+    "ty>=0.0.1a25",
+    "pdoc>=16.0.0",
+]
+doc = [
+    "pdoc>=16.0.0",
+]
+test = [
+    "pytest>=8.4.2",
+    "poethepoet>=0.37.0",
+    "ruff>=0.14.3",
+    "ty>=0.0.1a25",
+]
+
+[tool.ruff]
+line-length = 100
+exclude = ["__pycache__", ".venv", "build", "dist", ".git"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "C90", "N", "I"]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-vs -ra -q"
+testpaths = ["tests", "service"]
+
+[tool.poe]
+executor.type  = "uv"
+
+[tool.poe.tasks]
+lint = "ruff check ."
+type_check = "ty check"
+format = "ruff format ."
+test = "pytest"
+check = ["format", "lint","type_check", "test"]
+render-docs = "pdoc -t docs/templates --mermaid --docformat markdown --docformat google service project -o html"
+serve-docs = "pdoc -t docs/templates --mermaid --docformat markdown --docformat google service project"
+
+[tool.poe.tasks.clean]
+help = "Clean local caches for mypy, pytest, python"
+script = "poethepoet.scripts:rm('.mypy_cache', '.pytest_cache', './**/__pycache__', './**/*.pyc')"

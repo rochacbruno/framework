@@ -1,0 +1,28 @@
+[project]
+name = "framework"
+version = "0.1.0"
+description = "Framework manages templates for a new Django Project with multiple applications"
+readme = "README.md"
+authors = [
+    { name = "Bruno Rocha", email = "rochacbruno@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "copier>=9.10.3",
+    "cyclopts>=4.2.2",
+]
+
+[project.scripts]
+framework = "framework:main"
+
+[build-system]
+requires = ["uv_build>=0.9.8,<0.10.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pdoc>=16.0.0",
+    "poethepoet>=0.37.0",
+    "pytest>=9.0.0",
+    "ruff>=0.14.4",
+]
