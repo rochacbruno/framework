@@ -10,6 +10,7 @@ requires-python = ">=3.12"
 dependencies = [
     "copier>=9.10.3",
     "cyclopts>=4.2.2",
+    "gitpython>=3.1.45",
 ]
 
 [project.scripts]
@@ -25,4 +26,5 @@ dev = [
     "poethepoet>=0.37.0",
     "pytest>=9.0.0",
     "ruff>=0.14.4",
+    "ty>=0.0.1a26",
 ]
