@@ -16,7 +16,7 @@ REPO = os.getenv("FRAMEWORK_REPO", "https://github.com/rochacbruno/framework")
 
 
 class Context(BaseModel):
-    project_template: str
+    project_template: str = REPO
     app_template: str | Path
 
     @classmethod
@@ -27,9 +27,7 @@ class Context(BaseModel):
         Repo.clone_from(REPO, base_cache_path)
         print(f"Cloned {REPO} to {base_cache_path}")
         app_template = base_cache_path / "templates/app"
-
-        # Main project is always templated directly from repo
-        return cls(project_template=REPO, app_template=app_template)
+        return cls(app_template=app_template)
 
 
 @app.command
@@ -50,8 +48,16 @@ def init(
         Repo.init(str(destination))
 
     ctx = Context.build()
+    print(ctx)
     print(f"Initializing your project on {destination}")
-    run_copy(ctx.project_template, destination, data={"project": project})
+    run_copy(
+        ctx.project_template,
+        destination,
+        data={
+            "project_name": project,
+            "template": "project",
+        },
+    )
     print("Main project created.")
 
     # for app_name in apps:
