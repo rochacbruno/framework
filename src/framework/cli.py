@@ -67,6 +67,10 @@ def init(
         )
         print(f"Created app {app_name}")
 
+    if apps:
+        # Ensure apps is a Python module so each app can be imported
+        Path(apps_destination / "__init__.py").touch()
+
     print("…" * 40)
     print("Framework init finished")
     print(f"Created project at {destination}/{project}")
