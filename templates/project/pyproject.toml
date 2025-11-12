@@ -1,5 +1,5 @@
 [project]
-name = "project"
+name = "{{project_name}}"
 version = "0.1.0"
 description = "description here"
 readme = "README.md"
@@ -40,7 +40,7 @@ select = ["E", "F", "W", "C90", "N", "I"]
 [tool.pytest.ini_options]
 minversion = "6.0"
 addopts = "-vs -ra -q"
-testpaths = ["tests", "service"]
+testpaths = ["{{project_name}}/tests", "apps/**/tests"]
 
 [tool.poe]
 executor.type  = "uv"
@@ -51,8 +51,8 @@ type_check = "ty check"
 format = "ruff format ."
 test = "pytest"
 check = ["format", "lint","type_check", "test"]
-render-docs = "pdoc -t docs/templates --mermaid --docformat markdown --docformat google service project -o html"
-serve-docs = "pdoc -t docs/templates --mermaid --docformat markdown --docformat google service project"
+render-docs = "pdoc -t docs/templates --mermaid --docformat markdown --docformat google apps {{project_name}} -o html"
+serve-docs = "pdoc -t docs/templates --mermaid --docformat markdown --docformat google apps {{project_name}}"
 
 [tool.poe.tasks.clean]
 help = "Clean local caches for mypy, pytest, python"

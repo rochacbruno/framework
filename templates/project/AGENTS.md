@@ -1,1 +1,1 @@
-# Memory file for AI Agents
+# {{project_name}} managed by Framework
