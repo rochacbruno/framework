@@ -51,8 +51,8 @@ type_check = "ty check"
 format = "ruff format ."
 test = "pytest"
 check = ["format", "lint","type_check", "test"]
-render-docs = "pdoc -t docs/templates --mermaid --docformat markdown --docformat google apps {{project_name}} -o html"
-serve-docs = "pdoc -t docs/templates --mermaid --docformat markdown --docformat google apps {{project_name}}"
+render-docs = "pdoc -t docs/templates --mermaid --docformat markdown --docformat google {{project_name}} apps -o html"
+serve-docs = "pdoc -t docs/templates --mermaid --docformat markdown --docformat google {{project_name}} apps"
 
 [tool.poe.tasks.clean]
 help = "Clean local caches for mypy, pytest, python"
