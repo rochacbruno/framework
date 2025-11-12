@@ -1,12 +1,10 @@
 import os
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from typing import Annotated
 
 from copier import run_copy, run_update
 from cyclopts import App, Parameter
 from git import Repo
-from pydantic import BaseModel
 
 app = App(
     name="Framework",
@@ -16,42 +14,37 @@ app = App(
 REPO = os.getenv("FRAMEWORK_REPO", "https://github.com/rochacbruno/framework")
 
 
-# class Context(BaseModel):
-#     project_template: str = REPO
-#     app_template: str | Path
-
-#     @classmethod
-#     def build(cls):
-#         # This local clone is used only once to bootstrap each app
-#         temp_dir = TemporaryDirectory(delete=False)
-#         base_cache_path = Path(temp_dir.name)
-#         Repo.clone_from(REPO, base_cache_path)
-#         print(f"Cloned {REPO} to {base_cache_path}")
-#         app_template = base_cache_path / "templates/app"
-#         return cls(app_template=app_template)
-
-
 @app.command
 def init(
     destination: Path | None = None,
     project: Annotated[str | None, Parameter(alias="-p")] = None,
     apps: Annotated[list[str], Parameter(consume_multiple=True)] = ["api"],
 ):
-    """Initialize a new application.
+    """Initialize a new Django Project.
 
-    1. Create new project from project_template
-    2. Create new apps from app_template
+    ## Usage
+    ```bash
+    # New project on current folder with one app named api:
+    framework init
+    # New project on specific folder with one app named api:
+    framework init /tmp/foo
+    # New project on named folder with 3 apps:
+    framework init my-service --apps api web core
+
+    ```
+    ---
+    Args:
+        destination: The root of the repository
+        project: project name [default to destination folder name]
+        apps: names for each app to be initialized
     """
     destination = destination or Path.cwd()
     project = project or destination.name.replace("-", "_")
-
-    # Destination must be a valid git repo
     if not destination.exists():
         destination.mkdir(parents=True, exist_ok=True)
-    if not Path(destination / ".git"):
+    if not Path(destination / ".git").exists():
         Repo.init(str(destination))
 
-    # ctx = Context.build()
     print(f"Initializing your project on {destination}")
     run_copy(
         REPO,
@@ -65,7 +58,6 @@ def init(
 
     apps_destination = destination / "apps"
     for app_name in apps:
-        # run_copy(str(ctx.app_template), destination / app_name)
         run_copy(
             REPO,
             apps_destination / app_name,
@@ -74,6 +66,12 @@ def init(
             },
         )
         print(f"Created app {app_name}")
+
+    print("…" * 40)
+    print("Framework init finished")
+    print(f"Created project at {destination}/{project}")
+    if apps:
+        print(f"Created apps at {destination}/apps/[{','.join(apps)}]")
 
 
 @app.command
