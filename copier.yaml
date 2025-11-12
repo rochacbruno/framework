@@ -1,6 +1,0 @@
-_subdirectory: "{{template}}"
-
-template:
-  choices:
-    - project: templates/project
-    - app: templates/app
