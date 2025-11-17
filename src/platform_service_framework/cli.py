@@ -22,7 +22,7 @@ def init(
     project: Annotated[str | None, Parameter(alias="-p")] = None,
     apps: Annotated[list[str], Parameter(consume_multiple=True)] = ["api"],
 ):
-    """# Initialize a new Django Project.
+    """Initialize a new Django Project.
 
     ## Examples
     ```bash
