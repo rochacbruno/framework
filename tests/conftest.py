@@ -2,12 +2,13 @@
 
 import os
 from pathlib import Path
+from typing import Tuple, Any, Generator
 
 import pytest
 
 
 @pytest.fixture
-def isolated_dir(tmp_path, monkeypatch):
+def isolated_dir(tmp_path, monkeypatch) -> Generator[Path, Any, None]:
     """Create an isolated temporary directory and change to it.
 
     Args:
@@ -23,7 +24,7 @@ def isolated_dir(tmp_path, monkeypatch):
 
 
 @pytest.fixture
-def local_repo_url(monkeypatch):
+def local_repo_url(monkeypatch) -> str:
     """Override FRAMEWORK_REPO to use local git repository.
 
     Args:
@@ -42,7 +43,7 @@ def local_repo_url(monkeypatch):
 
 
 @pytest.fixture
-def isolated_env(isolated_dir, local_repo_url):
+def isolated_env(isolated_dir, local_repo_url) -> Tuple[Path, str]:
     """Combined fixture providing both isolated directory and local repo URL.
 
     Args:

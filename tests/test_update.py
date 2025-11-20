@@ -1,14 +1,14 @@
 """Tests for the update command."""
 
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from git import Repo
 
 from platform_service_framework.cli import app
 
 
-def test_update_default_destination(isolated_env, capsys):
+def test_update_default_destination(isolated_env, capsys, local_repo_url):
     """Test update command with default destination (current directory)."""
     tmp_path, _ = isolated_env
 
@@ -27,9 +27,11 @@ def test_update_default_destination(isolated_env, capsys):
 
         # Verify run_update was called with correct parameters
         mock_update.assert_called_once_with(
-            tmp_path,
+            dst_path=tmp_path,
+            src_path=local_repo_url,
             overwrite=True,
             skip_answered=True,
+            vcs_ref="HEAD",
         )
 
     # Check output
@@ -57,9 +59,11 @@ def test_update_with_specific_destination(isolated_dir, local_repo_url, capsys):
 
         # Verify run_update was called
         mock_update.assert_called_once_with(
-            destination,
+            dst_path=destination,
+            src_path=local_repo_url,
             overwrite=True,
             skip_answered=True,
+            vcs_ref="HEAD",
         )
 
     # Check output
@@ -68,18 +72,38 @@ def test_update_with_specific_destination(isolated_dir, local_repo_url, capsys):
     assert str(destination) in captured.out
 
 
-def test_update_parameters(isolated_env):
-    """Test that update command passes correct parameters to run_update."""
+def test_update_non_git_repository(isolated_env, capsys):
+    """Test that update command triggers an error in case it is executed in a non-git repository."""
     tmp_path, _ = isolated_env
 
-    with patch("platform_service_framework.cli.run_update") as mock_update:
-        # Run update - expect SystemExit(0)
-        with pytest.raises(SystemExit) as exc_info:
-            app(["update"])
+    # Run update - expect SystemExit(1)
+    with pytest.raises(SystemExit) as exc_info:
+        app(["update"])
 
-        assert exc_info.value.code == 0
+    assert exc_info.value.code == 1
 
-        # Verify the parameters passed to run_update
-        call_args = mock_update.call_args
-        assert call_args.kwargs["overwrite"] is True
-        assert call_args.kwargs["skip_answered"] is True
+    # Check output
+    captured = capsys.readouterr()
+    assert "Updating your app" in captured.out
+    assert "Updating is only supported in git-tracked repositories. Please initialize your repository." in captured.out
+
+
+def test_update_dirty_git_repository(isolated_env, capsys):
+    """Test that update command triggers an error in case it is executed in a non-git repository."""
+    tmp_path, _ = isolated_env
+
+    # Init repo and add to mark "dirty" changes
+    repo = Repo.init(tmp_path)
+    repo.index.add(['.'])
+
+    # Run update - expect SystemExit(1)
+    with pytest.raises(SystemExit) as exc_info:
+        app(["update"])
+
+    assert exc_info.value.code == 1
+
+    # Check output
+    captured = capsys.readouterr()
+    assert "Updating your app" in captured.out
+    assert "There are uncommitted changes" in captured.out
+    assert "please commit or stash them" in captured.out
