@@ -278,8 +278,17 @@ def validate(
         )
         return False
 
+    copier_answers = safe_load((destination / ".copier-answers.yml").read_text())
+
+    # try to read _commit from answer if it doesnt exist return false
+    if "_commit" not in copier_answers:
+        print(
+            "Error: .copier-answers.yml is missing the '_commit' key. Cannot validate project."
+        )
+        return False
+
     # Run test copier "recopy" to retrieve possible conflicts
-    src_path, vcs_ref = get_repo()
+    src_path, _ = get_repo()
     f = io.StringIO()
     with redirect_stderr(f):
         run_recopy(
@@ -287,7 +296,7 @@ def validate(
             dst_path=destination,
             skip_answered=True,
             overwrite=True,
-            vcs_ref=vcs_ref,
+            vcs_ref=copier_answers.get("_commit"),
             pretend=True,
         )
     output = f.getvalue().splitlines()
