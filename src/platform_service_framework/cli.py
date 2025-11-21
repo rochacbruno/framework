@@ -180,7 +180,6 @@ def validate(
             src_path=get_repo(),
             dst_path=destination,
             skip_answered=True,
-            overwrite=True,
             vcs_ref=vcs_ref,
             pretend=True,
         )
