@@ -182,6 +182,7 @@ def validate(
             skip_answered=True,
             vcs_ref=vcs_ref,
             pretend=True,
+            conflict="rej"
         )
     print(f.getvalue())
     f.close()
