@@ -173,6 +173,20 @@ def validate(
         )
     output = f.getvalue().splitlines()
     print(f.getvalue())
+    f.close()
+    f = io.StringIO()
+    with redirect_stderr(f):
+        run_update(
+            src_path=get_repo(),
+            dst_path=destination,
+            skip_answered=True,
+            overwrite=True,
+            vcs_ref=vcs_ref,
+            pretend=True,
+        )
+    print(f.getvalue())
+    f.close()
+
     # Read protected files defined under the framework config
     config_path = destination / ".protected_files.yaml"
     config = safe_load(config_path.read_text())
