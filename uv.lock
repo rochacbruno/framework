@@ -328,6 +328,7 @@ dependencies = [
     { name = "copier" },
     { name = "cyclopts" },
     { name = "gitpython" },
+    { name = "pyyaml" },
 ]
 
 [package.dev-dependencies]
@@ -345,6 +346,7 @@ requires-dist = [
     { name = "copier", specifier = ">=9.10.3" },
     { name = "cyclopts", specifier = ">=4.2.2" },
     { name = "gitpython", specifier = ">=3.1.45" },
+    { name = "pyyaml", specifier = ">=6.0.2" },
 ]
 
 [package.metadata.requires-dev]

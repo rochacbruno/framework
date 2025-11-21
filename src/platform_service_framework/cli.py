@@ -1,13 +1,18 @@
 import io
 import os
+import sys
 from contextlib import redirect_stderr
+from importlib.metadata import distribution
 from pathlib import Path
 from typing import Annotated
 
-from copier import run_copy, run_update, run_recopy
+import yaml
+from copier import run_copy, run_recopy, run_update
 from cyclopts import App, Parameter
 from git import Repo
 from yaml import safe_load
+
+from .utils import get_repo
 
 
 app = App(
@@ -16,21 +21,15 @@ app = App(
 )
 
 
-def get_repo() -> str:
-    """Get the repository URL from environment or use default."""
-    return os.getenv(
-        "FRAMEWORK_REPO", "https://github.com/ansible/platform-service-framework"
-    )
-
-
 @app.command
 def init(
     destination: Path | None = None,
     project: Annotated[str | None, Parameter(alias="-p")] = None,
     apps: Annotated[list[str], Parameter(consume_multiple=True)] = ["api"],
-    vcs_ref: Annotated[str | None, Parameter(alias="-r")] = "HEAD",
 ):
     """Initialize a new Django Project.
+
+    The template version is automatically detected based on how the CLI was installed.
 
     ## Examples
     ```bash
@@ -47,7 +46,6 @@ def init(
         destination: The root of the repository
         project: project name [default to destination folder name]
         apps: names for each app to be initialized
-        vcs_ref: VCS reference to use for the template [default to HEAD]
     """
     destination = destination or Path.cwd()
     project = project or destination.name.replace("-", "_")
@@ -57,27 +55,28 @@ def init(
         Repo.init(str(destination), initial_branch="devel")
 
     print(f"Initializing your project on {destination}")
+    src_path, vcs_ref = get_repo()
     run_copy(
-        get_repo(),
+        src_path,
         destination,
+        vcs_ref=vcs_ref,
         data={
             "project_name": project,
             "template": "templates/project",
         },
-        vcs_ref=vcs_ref,
     )
     print("Main project created.")
 
     apps_destination = destination / "apps"
     for app_name in apps:
         run_copy(
-            get_repo(),
+            src_path,
             apps_destination / app_name,
+            vcs_ref=vcs_ref,
             data={
                 "project_name": project,
                 "template": "templates/app",
             },
-            vcs_ref=vcs_ref,
         )
         print(f"Created app {app_name}")
 
@@ -91,80 +90,200 @@ def init(
     if apps:
         print(f"Created apps at {destination}/apps/[{','.join(apps)}]")
 
+    # Initial commit
+    try:
+        repo = Repo(destination)
+        if repo.is_dirty(untracked_files=True):
+            print("\nCommitting initial project...")
+            repo.git.add(A=True)
+
+            # Build detailed commit message
+            commit_msg = f"""[platform-service-framework] Initialize project
+
+Project: {project}
+Apps: {", ".join(apps) if apps else "none"}
+Template source: {src_path}
+Template version: {vcs_ref or "HEAD"}
+"""
+            repo.index.commit(commit_msg)
+            print("✓ Initial commit created")
+        else:
+            print("\nNo changes to commit")
+    except Exception as e:
+        print(f"\nNote: Could not create initial commit: {e}")
+        print("You may want to commit manually with: git add -A && git commit")
+
 
 @app.command
 def update(
     destination: Path | None = None,
-    vcs_ref: Annotated[str | None, Parameter(alias="-r")] = "HEAD",
 ):
     """Update an existing application.
 
+    The template version is automatically detected based on how the CLI was installed.
+
     ## Examples
     ```bash
-    # Update project to latest devel branch:
+    # Update project to detected template version:
     platform-service-framework update
-    # Update project to specific VCS reference:
-    platform-service-framework update -r f46e071
     ```
     ---
     Args:
         destination: The root of the repository
-        vcs_ref: VCS reference to use for the template [default to HEAD]
     """
     destination = destination or Path.cwd()
     print(f"Updating your app on {destination}")
-    if not Path(destination / ".git").exists():
-        print(
-            "Updating is only supported in git-tracked repositories. Please initialize your repository."
-        )
-        return False
-    repo = Repo(destination)
-    if repo.is_dirty():
-        print(
-            f"There are uncommitted changes in {destination}, please commit or stash them first"
-        )
-        return False
+
+    # Check working tree is clean (unique to update, not needed for validate)
+    if Path(destination / ".git").exists():
+        try:
+            repo = Repo(destination)
+            if repo.is_dirty(untracked_files=True):
+                print("Error: Working tree has uncommitted changes.")
+                print("Please commit or stash your changes before running update.")
+                sys.exit(1)
+            print("Working tree is clean")
+        except Exception as e:
+            print(f"Error: Could not check git status: {e}")
+            sys.exit(1)
+
+    # Validate before making any changes (checks git repo and copier answers)
+    if not validate(destination):
+        print("\nValidation failed. Please fix the issues before updating.")
+        sys.exit(1)
+
+    # Detect current framework source
+    src_path, vcs_ref = get_repo()
+
+    # Read current copier answers
+    answers_file = destination / ".copier-answers.yml"
+    with open(answers_file) as f:
+        answers = yaml.safe_load(f)
+
+    old_src = answers.get("_src_path")
+    print(f"Current template source: {old_src}")
+    print(f"Detected framework source: {src_path}")
+
+    # Update source in answers if changed
+    source_changed = old_src != src_path
+    if source_changed:
+        print(f"Updating template source to: {src_path}")
+        answers["_src_path"] = src_path
+
+        # Write updated answers
+        with open(answers_file, "w") as f:
+            f.write(
+                "# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY\n"
+            )
+            yaml.dump(answers, f, default_flow_style=False, sort_keys=False)
+
+        print("✓ Updated .copier-answers.yml")
+
+        # Commit the source change
+        try:
+            repo.git.add(str(answers_file))
+            commit_msg = f"""[platform-service-framework] Update template source
+
+Old source: {old_src}
+New source: {src_path}
+Template version: {vcs_ref or "HEAD"}
+
+This commit updates .copier-answers.yml to point to the new template source.
+"""
+            repo.index.commit(commit_msg)
+            print("✓ Committed .copier-answers.yml changes")
+        except Exception as e:
+            print(f"Warning: Could not commit .copier-answers.yml: {e}")
+    else:
+        print("Template source unchanged")
+
+    # Run copier update
+    print("\nRunning copier update...")
+    if vcs_ref:
+        print(f"Using VCS ref: {vcs_ref}")
+
     run_update(
-        src_path=get_repo(),
-        dst_path=destination,
+        destination,
+        vcs_ref=vcs_ref,
         overwrite=True,
         skip_answered=True,
-        vcs_ref=vcs_ref,
     )
+
+    # Auto-commit if successful, error if conflicts
+    try:
+        repo = Repo(destination)
+
+        # Check for merge conflicts
+        if repo.index.unmerged_blobs():
+            print("\nError: Merge conflicts detected during update.")
+            print("Please resolve conflicts manually and commit the changes.")
+            print("\nTo see conflicts:")
+            print("  git status")
+            sys.exit(1)
+
+        # Check if there are changes to commit
+        if repo.is_dirty(untracked_files=True):
+            print("\nCommitting update changes...")
+            repo.git.add(A=True)
+
+            commit_msg = f"""[platform-service-framework] Update project from template
+
+Template source: {src_path}
+Template version: {vcs_ref or "HEAD"}
+
+This commit applies updates from the template.
+"""
+            repo.index.commit(commit_msg)
+            print("✓ Update committed successfully")
+        else:
+            print("\nNo changes from update")
+
+    except Exception as e:
+        print(f"\nError: Could not commit update: {e}")
+        print("Please review and commit changes manually.")
+        sys.exit(1)
 
 
 @app.command
 def validate(
     destination: Path | None = None,
-    vcs_ref: Annotated[str | None, Parameter(alias="-r")] = "HEAD",
 ) -> bool:
-    """Validate an existing application
+    """Validate an existing application against the detected template version.
+
+    The template version is automatically detected based on how the CLI was installed.
 
     ## Examples
     ```bash
-    # Validate template to latest HEAD branch:
+    # Validate project against detected template:
     platform-service-framework validate
-    # Update project to specific VCS reference:
-    platform-service-framework validate -r f46e071
     ```
     ---
     Args:
         destination: The root of the repository
-        vcs_ref: VCS reference to use for the template [default to HEAD]
     """
     destination = destination or Path.cwd()
     print(f"Validating your app on {destination}")
-    answers_path = destination / ".copier-answers.yml"
-    if not answers_path.exists():
+
+    # Check if it's a git repository
+    if not Path(destination / ".git").exists():
+        print(
+            "Platform service framework is only supported in git-tracked repositories. Please initialize your repository."
+        )
+        return False
+
+    # Check if it's a copier project
+    if not Path(destination / ".copier-answers.yml").exists():
         print(
             "No answers file found (.copier-answers.yml), please run the command from the root of the project"
         )
         return False
+
     # Run test copier "recopy" to retrieve possible conflicts
+    src_path, vcs_ref = get_repo()
     f = io.StringIO()
     with redirect_stderr(f):
         run_recopy(
-            src_path=get_repo(),
+            src_path=src_path,
             dst_path=destination,
             skip_answered=True,
             overwrite=True,
@@ -174,8 +293,23 @@ def validate(
     output = f.getvalue().splitlines()
     # Read protected files defined under the framework config
     config_path = destination / ".protected_files.yaml"
-    config = safe_load(config_path.read_text())
-    protected_files = config["protected_files"]
+    if not config_path.exists():
+        print("Note: .protected_files.yaml not found. Skipping protected files check.")
+        print(
+            "✓ No framework infractions found, your project is ready to be updated! ✓"
+        )
+        return True
+
+    try:
+        config = safe_load(config_path.read_text())
+        if not config or "protected_files" not in config:
+            print(f"Error: {config_path} is missing 'protected_files' key.")
+            return False
+        protected_files = config["protected_files"]
+    except Exception as e:
+        print(f"Error: Failed to parse {config_path}: {e}")
+        return False
+
     # Retrieve conflicts and compare them to the list of protected files
     conflicts = [line for line in output if "conflict" in line or "create" in line]
     infractions = list(
@@ -202,3 +336,27 @@ def validate(
 def completions():
     """generate shell completions."""
     print(app.generate_completion())
+
+
+@app.command
+def debug():
+    """Show debug information about the framework installation."""
+    src_path, vcs_ref = get_repo()
+    print(f"Template source: {src_path}")
+    if vcs_ref:
+        print(f"VCS ref: {vcs_ref}")
+
+    # Show additional debug info if FRAMEWORK_DEBUG is set
+    if os.getenv("FRAMEWORK_DEBUG"):
+        try:
+            dist = distribution("platform-service-framework")
+            print(f"\nPackage version: {dist.version}")
+            print(f"Package location: {dist._path}")  # type: ignore
+
+            if dist._path:  # type: ignore
+                direct_url_file = dist._path / "direct_url.json"  # type: ignore
+                if direct_url_file.exists():
+                    print("\nDirect URL metadata:")
+                    print(direct_url_file.read_text())
+        except Exception as e:
+            print(f"\nError getting debug info: {e}")

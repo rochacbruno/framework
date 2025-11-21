@@ -24,20 +24,16 @@ def isolated_dir(tmp_path, monkeypatch) -> Generator[Path, Any, None]:
 
 
 @pytest.fixture
-def local_repo_url(monkeypatch) -> str:
-    """Override FRAMEWORK_REPO to use local git repository.
+def local_repo_url() -> str:
+    """Get the local git repository path.
 
-    Args:
-        monkeypatch: pytest's monkeypatch fixture
+    The framework will auto-detect this when running with 'uv run'.
 
     Returns:
         str: The local repository path
     """
     # Get the path to the current repository (3 levels up from tests/)
     repo_path = Path(__file__).parent.parent.absolute()
-
-    # Set the environment variable to point to local repo
-    monkeypatch.setenv("FRAMEWORK_REPO", str(repo_path))
 
     return str(repo_path)
 

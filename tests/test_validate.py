@@ -17,10 +17,10 @@ def test_validate_empty_project(isolated_env, capsys):
 
     assert exc_info.value.code == 1
 
-    # Check output
+    # Check output - git check happens first, so expect git error
     captured = capsys.readouterr()
     assert "Validating your app" in captured.out
-    assert "No answers file found (.copier-answers.yml), please run the command from the root of the project" in captured.out
+    assert "Platform service framework is only supported in git-tracked repositories" in captured.out
 
 def test_validate_on_initialized_project(isolated_env, capsys):
     """Test validate on an initialized project."""
