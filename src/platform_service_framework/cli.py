@@ -172,6 +172,7 @@ def validate(
             pretend=True,
         )
     output = f.getvalue().splitlines()
+    print(f.getvalue())
     # Read protected files defined under the framework config
     config_path = destination / ".protected_files.yaml"
     config = safe_load(config_path.read_text())
